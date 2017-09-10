@@ -1,5 +1,7 @@
 import numpy as np
 import tensorflow as tf
+
+print("Setup")
 filename = './wonderland.txt'
 
 data = open(filename, 'r').read()
@@ -14,13 +16,14 @@ length_of_sequence = 100
 no_of_hidden = 700
 no_of_layers = 10
 generate_text_length = 100
-batch_size = 50
-no_of_batches = int(len(data)/length_of_sequence)
+no_of_sequences = int(len(data)/length_of_sequence)
+print("no of sequences: {}".format( no_of_sequences))
 
 X = np.zeros((int(len(data)/length_of_sequence), length_of_sequence, no_of_features))
 Y = np.zeros((int(len(data)/length_of_sequence), length_of_sequence, no_of_features))
 
 # data generation
+print("Data Generation")
 for i in range(0, int(len(data)/length_of_sequence)):
     X_sequence = data[i*length_of_sequence:(i+1)*length_of_sequence]
     X_sequence_in_num = [char_to_num[char] for char in X_sequence]
@@ -39,6 +42,7 @@ for i in range(0, int(len(data)/length_of_sequence)):
     Y[i] = output_sequence
 
 # create model
+print("Creating Model")
 batchX_placeholder = tf.placeholder(tf.float32, [length_of_sequence, no_of_features])
 batchY_placeholder = tf.placeholder(tf.int32, [length_of_sequence, no_of_features])
 
@@ -61,28 +65,25 @@ total_loss = tf.reduce_mean(losses)
 train_step = tf.train.AdagradOptimizer(0.3).minimize(total_loss)
 
 
+loss_list = []
+print("Run")
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
-    epoch = 0
-    while True:
+    for epoch in range(100):
 
-        # TODO: start here
-        for batch_idx in range(batch_size):
-            start_idx = batch_idx * length_of_sequence
-            end_idx = start_idx + length_of_sequence
-
-            batchX = x[:,start_idx:end_idx]
-            batchY = y[:,start_idx:end_idx]
-
-            _total_loss, _train_step, _current_state, _predictions_series = sess.run( 
-                    [total_loss, train_step, current_state, predictions_series], 
-                    feed_dict={ 
-                        batchX_placeholder: batchX, 
-                        batchY_placeholder: batchY, 
-                        cell_state: _current_cell_state, 
-                        hidden_state: _current_hidden_state 
-                        
+        _current_cell_state = np.zeros((length_of_sequence, no_of_hidden))
+        _current_hidden_state = np.zeros((length_of_sequence, no_of_hidden))
+        for sequence_idx in range(no_of_sequences):
+            _total_loss, _train_step, _current_state, _prediction_series = sess.run(
+                    [total_loss, train_step, current_state, prediction_series],
+                    feed_dict = {
+                        batchX_placeholder: X[sequence_idx],
+                        batchY_placeholder: Y[sequence_idx],
+                        cell_state: _current_cell_state,
+                        hidden_state: _current_hidden_state
                         }
                     )
-
+            loss_list.append(_total_loss)
+            if sequence_idx%100 == 0:
+                print("Epoch {}, Sequence {}, Total Loss {}".format(epoch, sequence_idx, _total_loss))
 
