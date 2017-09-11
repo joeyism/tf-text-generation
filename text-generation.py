@@ -16,6 +16,8 @@ length_of_sequence = 100
 no_of_hidden = 700
 no_of_layers = 10
 generate_text_length = 100
+print_per = 1
+no_of_epochs = 1
 no_of_sequences = int(len(data)/length_of_sequence)
 print("no of sequences: {}".format( no_of_sequences))
 
@@ -67,23 +69,39 @@ train_step = tf.train.AdagradOptimizer(0.3).minimize(total_loss)
 
 loss_list = []
 print("Run")
-with tf.Session() as sess:
-    sess.run(tf.global_variables_initializer())
-    for epoch in range(100):
+def generate_text(sess, generate_text_length):
+    generated_num = [np.random.randint(no_unique_chars)]
+    generated_char = [num_to_char[generated_num[-1]]]
+    X = np.zeros((1, generate_text_length, no_unique_chars))
+    for i in range(generate_text_length):
+        X[0][i][generated_num[-1]] = 1
+        print(num_to_char[generated_num[-1]], end="")
+        generated_num = np.argmax(sess.run(prediction_series, feed_dict ={batchX_placeholder: X[:, :i+1, :]})[0], 1)
+        generated_char.append(num_to_char[generated_num[-1]])
+    return "".join(generated_char)
 
-        _current_cell_state = np.zeros((length_of_sequence, no_of_hidden))
-        _current_hidden_state = np.zeros((length_of_sequence, no_of_hidden))
-        for sequence_idx in range(no_of_sequences):
-            _total_loss, _train_step, _current_state, _prediction_series = sess.run(
-                    [total_loss, train_step, current_state, prediction_series],
-                    feed_dict = {
-                        batchX_placeholder: X[sequence_idx],
-                        batchY_placeholder: Y[sequence_idx],
-                        cell_state: _current_cell_state,
-                        hidden_state: _current_hidden_state
-                        }
-                    )
-            loss_list.append(_total_loss)
-            if sequence_idx%100 == 0:
-                print("Epoch {}, Sequence {}, Total Loss {}".format(epoch, sequence_idx, _total_loss))
+
+sess = tf.Session()
+sess.run(tf.global_variables_initializer())
+for epoch in range(no_of_epochs):
+    _current_cell_state = np.zeros((length_of_sequence, no_of_hidden))
+    _current_hidden_state = np.zeros((length_of_sequence, no_of_hidden))
+    for sequence_idx in range(no_of_sequences):
+        _total_loss, _train_step, _current_state, _prediction_series = sess.run(
+                [total_loss, train_step, current_state, prediction_series],
+                feed_dict = {
+                    batchX_placeholder: X[sequence_idx],
+                    batchY_placeholder: Y[sequence_idx],
+                    cell_state: _current_cell_state,
+                    hidden_state: _current_hidden_state
+                    }
+                )
+        loss_list.append(_total_loss)
+        if sequence_idx%print_per == 0:
+            print("Epoch {}, Sequence {}, Total Loss {}".format(epoch, sequence_idx, _total_loss))
+
+saver = tf.train.Saver()
+save_path = saver.save(sess, "./model.ckpt")
+print("Model saved in %s" % save_path)
+#sess.close()
 
