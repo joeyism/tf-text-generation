@@ -19,22 +19,6 @@ def letter_to_vector(letter):
     result[char_to_num[letter]] = 1
     return result
 
-def generate_text(sess, generate_text_length):
-    generated_num = np.random.randint(no_unique_chars)
-    generated_char = num_to_char[generated_num]
-    _current_state = np.zeros((no_of_layers, 2, 1, no_of_hidden))
-    input_vector = letter_to_vector(generated_char)
-    for i in range(generate_text_length):
-        print(vector_to_letter(input_vector), end="")
-        _current_state, _prediction_series = sess.run(
-            [current_state, prediction_series], 
-            feed_dict = {
-                batchX_placeholder: [input_vector],
-                init_state_placeholder: _current_state
-            }
-        )
-        input_vector = letter_to_vector(vector_to_letter(_prediction_series[0]))
-
 no_of_features = no_unique_chars
 length_of_sequence = 100
 no_of_hidden = 700
@@ -87,9 +71,33 @@ Ysoftmax = tf.nn.softmax(Ylogits)
 
 Yinput_flat = tf.reshape(batchY_placeholder, [-1, no_unique_chars])
 loss = tf.nn.softmax_cross_entropy_with_logits(logits=Ylogits, labels = Yinput_flat)
-
-
 train_step = tf.train.AdamOptimizer(1e-3).minimize(loss)
+
+
+def generate_text(sess, generate_text_length):
+    generated_num = np.random.randint(no_unique_chars)
+    generated_char = num_to_char[generated_num]
+    inH = np.zeros([batch_size, no_of_hidden*no_of_layers])
+    #input_vector = letter_to_vector(generated_char)
+    input_vector = [X[0]]
+    for j in range(generate_text_length):
+        softmaxY = sess.run(
+            [Ysoftmax], 
+            feed_dict = {
+                batchX_placeholder: input_vector,
+                Hin: inH,
+                pkeep: 1
+            }
+        )
+        for i in range(len(softmaxY)-1):
+            letter = softmaxY[i]
+            print(vector_to_letter(letter), end="")
+            print("\n")
+        input_vector = softmaxY
+
+
+
+
 
 init = tf.global_variables_initializer()
 sess = tf.Session()
@@ -102,5 +110,7 @@ for epoch in range(20):
         batchY = [Y[i]]
         _, softmaxY, outH = sess.run([train_step, Ysoftmax, Hout], feed_dict = {batchX_placeholder: batchX, batchY_placeholder: batchY, Hin: inH, pkeep: 0.7})    
         inH = outH
+
+    generate_text(sess, length_of_sequence)
 
 
